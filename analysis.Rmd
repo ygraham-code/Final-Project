@@ -1,0 +1,75 @@
+---
+title: "Final Project"
+author: "Yasmine Graham"
+date: "`r Sys.Date()`"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+# 1. Data Loading
+
+
+```{r cars}
+summary(cars)
+```
+
+# 2. Data Cleaning
+
+
+```{r cars}
+summary(cars)
+```
+
+
+## Flights
+```{r cars}
+summary(cars)
+```
+
+## Weather
+```{r cars}
+summary(cars)
+```
+
+## Tweets
+
+
+
+```{r cars}
+summary(cars)
+```
+
+# 3. Analysis
+
+
+```{r cars}
+summary(cars)
+```
+
+## Flights Patterns
+
+```{r cars}
+summary(cars)
+```
+
+## Weather Impact
+```{r cars}
+summary(cars)
+```
+
+## Sentiment Analysis
+```{r cars}
+summary(cars)
+```
+
+# 4. Integration
+```{r cars}
+summary(cars)
+```
+
+# 5. Conclusion
+
+
