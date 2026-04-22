@@ -1,4 +1,4 @@
-# Load required packages (all covered in the book)
+# Load required packages
 library(readr)      # for read_csv
 library(dplyr)      # for mutate, case_when, across, na_if
 library(stringr)    # for str_sub, str_detect
@@ -6,9 +6,8 @@ library(lubridate)  # for ymd_hms
 
 # Read the CSV file
 storm_data <- read_csv("StormEvents_details-ftp_v1.0_d2015_c20260323.csv")
+#storm_data <- read_csv("weather.csv") #If you are using the one from github
 
-# Function to convert damage strings like "2.00K" or "1.5M" to numeric dollars
-# (Using case_when and str_sub as taught in Chapter 6)
 damage_to_dollars <- function(x) {
   x <- str_trim(x)   # remove extra spaces (Chapter 5)
   case_when(
