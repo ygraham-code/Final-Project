@@ -1,0 +1,1 @@
+This folder is created to contain data cleaning and analysis scripts for the group project

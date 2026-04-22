@@ -1,0 +1,1 @@
+This folder is created to contain plots, tables, and analysis outputs generated from R scripts.
