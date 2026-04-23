@@ -1,0 +1,114 @@
+---
+title: "Final Project"
+author: "Yasmine Graham"
+date: "`r Sys.Date()`"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+Libraries 
+```{r Libraries}
+library(tidytext)
+library(tidyverse)
+library(tidyr)
+
+
+```
+
+
+# 1. Data Loading
+
+
+```{r DtaLoading}
+summary(cars)
+```
+
+# 2. Data Cleaning
+
+
+```{r DtaCleaning}
+summary(cars)
+```
+
+
+## Flights
+```{r Flights}
+summary(cars)
+```
+
+## Weather
+```{r Weather}
+summary(cars)
+```
+
+## Tweets
+
+
+
+```{r, Tweets}
+
+twitter_data <- read.csv("Final-Project/data/Tweets-1.csv")
+
+twitter_tibble <- tibble(twitter_data)
+
+twitter_unnested <- twitter_tibble %>%
+  unnest_tokens(word,text)
+
+
+twitter_sentiment <- twitter_unnested %>%
+  inner_join(get_sentiments("bing")) %>%
+  count(word, sentiment, sort = TRUE)
+
+
+negative <- twitter_sentiment %>%
+  group_by(sentiment) %>%
+  filter(sentiment == "negative")
+
+total_negative <- negative %>%
+  count(sentiment, sort = TRUE)
+  
+positive <- twitter_sentiment %>%
+  group_by(sentiment) %>%
+  filter(sentiment == "positive")
+
+total_positive <- positive %>%
+  count(sentiment, sort = TRUE)
+
+write.csv(twitter_sentiment, file = "twitter_sentiment.csv")
+
+```
+
+# 3. Analysis
+
+
+```{r Analysis}
+summary(cars)
+```
+
+## Flights Patterns
+
+```{r FlightPatterns}
+summary(cars)
+```
+
+## Weather Impact
+```{r WeatherImpact}
+summary(cars)
+```
+
+## Sentiment Analysis
+```{r SentimentAnalysis}
+summary(cars)
+```
+
+# 4. Integration
+```{r Integration}
+summary(cars)
+```
+
+# 5. Conclusion
+
+
