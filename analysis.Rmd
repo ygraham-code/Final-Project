@@ -1,75 +1,452 @@
 ---
-title: "Final Project"
-author: "Yasmine Graham"
+title: "Flight Delays, Weather Events, and Public Sentiment Analysis"
+authors: "Yasmine Graham, Derek Fernandez-Davies, Abidur Rahman, Mojo Lindor, Colton Metcalf"
 date: "`r Sys.Date()`"
 output: html_document
 ---
 
 ```{r setup, include=FALSE}
-knitr::opts_chunk$set(echo = TRUE)
+knitr::opts_chunk$set(echo = TRUE, warning = FALSE, message = FALSE)
+
+
+
 ```
 
-# 1. Data Loading
+# 1. Libraries
 
-
-```{r cars}
-summary(cars)
+```{r libraries}
+# Text mining and sentiment analysis (Chapter 14 and 15)
+library(tidytext)
+# Data manipulation and visualization (Chapter 12)
+library(tidyverse)
+# Data reshaping
+library(tidyr)
+# Date handling
+library(lubridate)
+# Nice tables
+library(knitr)
 ```
 
-# 2. Data Cleaning
+# 2. Data Loading
 
+```{r data_loading}
+# Load all three main datasets
 
-```{r cars}
-summary(cars)
+# This is the Flights dataset 2015 flight delays from Kaggle
+flights <- read.csv("data/flights.csv")
+
+# Supporting lookup tables for flights
+airlines <- read.csv("data/airlines.csv")
+airports <- read.csv("data/airports.csv")
+
+# This is the Weather dataset NOAA 2015 storm events 
+storm_data <- read.csv("data/storm_events_cleaned.csv")
+
+# This is the Tweets dataset airline sentiment tweets 
+twitter_data <- read.csv("data/Tweets-1.csv")
+
+#check of all dataset dimensions
+cat("Flights rows:", nrow(flights), "\n")
+cat("Storm events rows:", nrow(storm_data), "\n")
+cat("Tweets rows:", nrow(twitter_data), "\n")
+cat("Airlines rows:", nrow(airlines), "\n")
+cat("Airports rows:", nrow(airports), "\n")
 ```
 
+# 3. Data Cleaning
 
 ## Flights
-```{r cars}
-summary(cars)
+
+```{r flights_cleaning}
+#Full airline names by joining with airlines lookup table
+flights_clean <- flights %>%
+  left_join(airlines, by = c("AIRLINE" = "IATA_CODE")) %>%
+  rename(AIRLINE_NAME = AIRLINE.y) %>%
+  # State info by joining airports on origin airport code
+  left_join(airports %>% select(IATA_CODE, STATE),
+            by = c("ORIGIN_AIRPORT" = "IATA_CODE")) %>%
+  rename(ORIGIN_STATE = STATE) %>%
+  # Removed rows with no delay info
+  filter(!is.na(DEPARTURE_DELAY)) %>%
+  # Replaced NA delay values with 0
+  # NA in delay columns means no delay occurred
+  mutate(
+    DEPARTURE_DELAY = ifelse(is.na(DEPARTURE_DELAY), 0, DEPARTURE_DELAY),
+    ARRIVAL_DELAY = ifelse(is.na(ARRIVAL_DELAY), 0, ARRIVAL_DELAY),
+    WEATHER_DELAY = ifelse(is.na(WEATHER_DELAY), 0, WEATHER_DELAY),
+    AIR_SYSTEM_DELAY = ifelse(is.na(AIR_SYSTEM_DELAY), 0, AIR_SYSTEM_DELAY),
+    AIRLINE_DELAY = ifelse(is.na(AIRLINE_DELAY), 0, AIRLINE_DELAY),
+    LATE_AIRCRAFT_DELAY = ifelse(is.na(LATE_AIRCRAFT_DELAY), 0, LATE_AIRCRAFT_DELAY),
+    SECURITY_DELAY = ifelse(is.na(SECURITY_DELAY), 0, SECURITY_DELAY)
+  ) %>%
+  # Created a delayed flag and delayed means more than 15 minutes
+  mutate(IS_DELAYED = ifelse(DEPARTURE_DELAY > 15, 1, 0))
+
+# Here shows the structure of cleaned flights data
+glimpse(flights_clean)
 ```
 
 ## Weather
-```{r cars}
-summary(cars)
+
+```{r weather_cleaning}
+# Selected only the columns we need for analysis
+storm_clean <- storm_data %>%
+  select(STATE, MONTH_NAME, EVENT_TYPE,
+         DAMAGE_PROPERTY, DAMAGE_CROPS,
+         INJURIES_DIRECT, DEATHS_DIRECT,
+         BEGIN_DATE_TIME) %>%
+  # Removed rows with no state
+  filter(!is.na(STATE)) %>%
+  # Standardized state to uppercase to match flights data
+  mutate(STATE = toupper(STATE)) %>%
+  # Replaced NA damage values with median 
+  # Median is better than mean here because damage values
+  # are heavily skewed by large disaster events
+  mutate(
+    DAMAGE_PROPERTY = ifelse(is.na(DAMAGE_PROPERTY),
+                             median(DAMAGE_PROPERTY, na.rm = TRUE),
+                             DAMAGE_PROPERTY),
+    DAMAGE_CROPS = ifelse(is.na(DAMAGE_CROPS),
+                          median(DAMAGE_CROPS, na.rm = TRUE),
+                          DAMAGE_CROPS)
+  )
+
+# Shows structure of cleaned weather data
+glimpse(storm_clean)
 ```
 
 ## Tweets
 
+```{r tweets_cleaning}
+# Convert to tibble for tidytext processing (Chapter 14)
+twitter_tibble <- tibble(twitter_data)
 
+# Tokenize words from tweet text
+# unnest_tokens splits each tweet into individual words
+twitter_unnested <- twitter_tibble %>%
+  unnest_tokens(word, text)
 
-```{r cars}
-summary(cars)
+# Custom stop words list these words appear in the Bing
+# lexicon but dont carry meaningful sentiment in airline context
+# For example "like" and "work" are too generic to be useful
+# This was identified and added by Derek during analysis
+stop_words_custom <- c("like", "work", "right", "well",
+                       "enough", "free", "fine", "tough",
+                       "afford", "cheaper", "rapid", "leverage")
+stopwords_tibble <- tibble(word = stop_words_custom)
+
+# Join with Bing sentiment lexicon (Chapter 15)
+# Then remove custom stop words using anti_join
+twitter_sentiment <- twitter_unnested %>%
+  inner_join(get_sentiments("bing")) %>%
+  anti_join(stopwords_tibble, by = "word") %>%
+  count(word, sentiment, sort = TRUE)
+
+# Separate positive and negative words for analysis
+negative <- twitter_sentiment %>%
+  filter(sentiment == "negative")
+
+positive <- twitter_sentiment %>%
+  filter(sentiment == "positive")
+
+# Show top sentiment words
+head(twitter_sentiment, 10)
 ```
 
-# 3. Analysis
-
-
-```{r cars}
-summary(cars)
-```
+# 4. Analysis
 
 ## Flights Patterns
 
-```{r cars}
-summary(cars)
+```{r flights_by_airline}
+# Which airlines have the most delays?
+# Grouped summary using tidyverse (Chapter 12)
+delays_by_airline <- flights_clean %>%
+  group_by(AIRLINE_NAME) %>%
+  summarise(
+    total_flights = n(),
+    total_delayed = sum(IS_DELAYED, na.rm = TRUE),
+    delay_rate = round(total_delayed / total_flights * 100, 1),
+    avg_delay_mins = round(mean(DEPARTURE_DELAY[DEPARTURE_DELAY > 0],
+                                na.rm = TRUE), 1)
+  ) %>%
+  arrange(desc(delay_rate))
+
+# Display as readable table
+kable(delays_by_airline,
+      col.names = c("Airline", "Total Flights",
+                    "Delayed Flights", "Delay Rate %",
+                    "Avg Delay (mins)"))
+```
+
+```{r flights_by_month}
+# Which months have the most delays?
+delays_by_month <- flights_clean %>%
+  group_by(MONTH) %>%
+  summarise(
+    total_flights = n(),
+    total_delayed = sum(IS_DELAYED, na.rm = TRUE),
+    delay_rate = round(total_delayed / total_flights * 100, 1)
+  ) %>%
+  arrange(MONTH)
+
+kable(delays_by_month,
+      col.names = c("Month", "Total Flights",
+                    "Delayed Flights", "Delay Rate %"))
 ```
 
 ## Weather Impact
-```{r cars}
-summary(cars)
+
+```{r weather_by_state}
+# Which states had the most storm events?
+storms_by_state <- storm_clean %>%
+  count(STATE, sort = TRUE) %>%
+  head(15)
+
+kable(storms_by_state,
+      col.names = c("State", "Number of Storm Events"))
+```
+
+```{r weather_by_type}
+# What types of storms occurred most often?
+storms_by_type <- storm_clean %>%
+  count(EVENT_TYPE, sort = TRUE) %>%
+  head(10)
+
+kable(storms_by_type,
+      col.names = c("Storm Type", "Count"))
 ```
 
 ## Sentiment Analysis
-```{r cars}
-summary(cars)
+
+```{r sentiment_summary}
+# Count total positive vs negative words
+sentiment_totals <- twitter_sentiment %>%
+  group_by(sentiment) %>%
+  summarise(total_words = sum(n))
+
+kable(sentiment_totals,
+      col.names = c("Sentiment", "Total Word Count"))
 ```
 
-# 4. Integration
-```{r cars}
-summary(cars)
+```{r negative_reasons}
+# What are people most negative about?
+# Uses the negativereason column from tweets dataset
+negative_reasons <- twitter_data %>%
+  filter(!is.na(negativereason) & negativereason != "") %>%
+  count(negativereason, sort = TRUE)
+
+kable(negative_reasons,
+      col.names = c("Reason for Negative Tweet", "Count"))
 ```
 
-# 5. Conclusion
+# 5. Visualizations
 
+## Flight Delay Rate by Airline
 
+```{r graph_airline_delays}
+# Bar chart showing delay rate per airline (Chapter 12 ggplot2)
+# reorder() sorts bars by delay rate for easier reading
+delays_by_airline %>%
+  ggplot(aes(x = reorder(AIRLINE_NAME, delay_rate),
+             y = delay_rate,
+             fill = delay_rate)) +
+  geom_col() +
+  coord_flip() +
+  scale_fill_gradient(low = "steelblue", high = "firebrick") +
+  labs(
+    title = "Flight Delay Rate by Airline (2015)",
+    x = "Airline",
+    y = "Delay Rate (%)",
+    fill = "Delay Rate"
+  ) +
+  theme_minimal()
+```
+
+## Flight Delays by Month
+
+```{r graph_monthly_delays}
+# Line chart showing delay trends across months (Chapter 12)
+# Helps identify seasonal patterns in delays
+delays_by_month %>%
+  ggplot(aes(x = MONTH, y = delay_rate)) +
+  geom_line(color = "steelblue", size = 1.2) +
+  geom_point(color = "firebrick", size = 3) +
+  scale_x_continuous(breaks = 1:12,
+                     labels = month.abb) +
+  labs(
+    title = "Monthly Flight Delay Rate (2015)",
+    x = "Month",
+    y = "Delay Rate (%)"
+  ) +
+  theme_minimal()
+```
+
+## Top Storm States
+
+```{r graph_storm_states}
+# Bar chart of top 15 states by storm events (Chapter 12)
+storms_by_state %>%
+  ggplot(aes(x = reorder(STATE, n), y = n, fill = n)) +
+  geom_col() +
+  coord_flip() +
+  scale_fill_gradient(low = "lightblue", high = "darkblue") +
+  labs(
+    title = "Top 15 States by Storm Events (2015)",
+    x = "State",
+    y = "Number of Storm Events",
+    fill = "Events"
+  ) +
+  theme_minimal()
+```
+
+## Top Storm Types
+
+```{r graph_storm_types}
+# Bar chart of most common storm types
+storms_by_type %>%
+  ggplot(aes(x = reorder(EVENT_TYPE, n), y = n, fill = n)) +
+  geom_col() +
+  coord_flip() +
+  scale_fill_gradient(low = "lightblue", high = "darkblue") +
+  labs(
+    title = "Most Common Storm Types (2015)",
+    x = "Storm Type",
+    y = "Count",
+    fill = "Count"
+  ) +
+  theme_minimal()
+```
+
+## Tweet Sentiment - Top Positive Words
+
+```{r graph_positive_words}
+# Bar chart of top 15 positive words (Chapter 15)
+positive %>%
+  head(15) %>%
+  ggplot(aes(x = reorder(word, n), y = n)) +
+  geom_col(fill = "steelblue") +
+  coord_flip() +
+  labs(
+    title = "Top 15 Positive Words in Airline Tweets",
+    x = "Word",
+    y = "Count"
+  ) +
+  theme_minimal()
+```
+
+## Tweet Sentiment - Top Negative Words
+
+```{r graph_negative_words}
+# Bar chart of top 15 negative words (Chapter 15)
+negative %>%
+  head(15) %>%
+  ggplot(aes(x = reorder(word, n), y = n)) +
+  geom_col(fill = "firebrick") +
+  coord_flip() +
+  labs(
+    title = "Top 15 Negative Words in Airline Tweets",
+    x = "Word",
+    y = "Count"
+  ) +
+  theme_minimal()
+```
+
+## Why Are People Tweeting Negatively?
+
+```{r graph_negative_reasons}
+# Bar chart of negative tweet reasons
+# This connects tweets directly to flight delay causes
+negative_reasons %>%
+  ggplot(aes(x = reorder(negativereason, n), y = n, fill = n)) +
+  geom_col() +
+  coord_flip() +
+  scale_fill_gradient(low = "lightsalmon", high = "firebrick") +
+  labs(
+    title = "Reasons for Negative Airline Tweets",
+    x = "Reason",
+    y = "Count",
+    fill = "Count"
+  ) +
+  theme_minimal()
+```
+
+# 6. Integration
+
+```{r integration}
+# Here we connect weather events to flight delays by state
+
+# Step 1: Get delay rate per state from flights data
+state_delays <- flights_clean %>%
+  filter(!is.na(ORIGIN_STATE)) %>%
+  group_by(ORIGIN_STATE) %>%
+  summarise(
+    delay_rate = round(sum(IS_DELAYED) / n() * 100, 1),
+    avg_weather_delay = round(mean(WEATHER_DELAY, na.rm = TRUE), 1)
+  ) %>%
+  # Convert state abbreviations to full uppercase names
+  # to match the weather dataset format
+  mutate(STATE_FULL = toupper(state.name[match(ORIGIN_STATE, 
+                                                state.abb)]))
+
+# Step 2: Get storm count per state from weather data
+state_storms <- storm_clean %>%
+  count(STATE) %>%
+  rename(storm_count = n)
+
+# Step 3: Join using full state names
+weather_flight_join <- state_delays %>%
+  filter(!is.na(STATE_FULL)) %>%
+  inner_join(state_storms,
+             by = c("STATE_FULL" = "STATE")) %>%
+  arrange(desc(storm_count))
+
+# Show results table
+kable(head(weather_flight_join, 15),
+      col.names = c("State Abbr", "Delay Rate %",
+                    "Avg Weather Delay (mins)",
+                    "State Full Name",
+                    "Storm Events"))
+```
+
+```{r graph_integration}
+# Scatter plot showing relationship between storms and delays
+# Each point is a state and size shows average weather delay
+weather_flight_join %>%
+  ggplot(aes(x = storm_count,
+             y = delay_rate,
+             label = ORIGIN_STATE)) +
+  geom_point(aes(size = avg_weather_delay),
+             color = "steelblue", alpha = 0.7) +
+  geom_text(vjust = -0.8, size = 3) +
+  labs(
+    title = "Storm Events vs Flight Delay Rate by State (2015)",
+    x = "Number of Storm Events",
+    y = "Flight Delay Rate (%)",
+    size = "Avg Weather\nDelay (mins)"
+  ) +
+  theme_minimal()
+```
+
+# 7. Conclusion
+
+**Goal of the mining work:**
+This project aimed to uncover the relationship between weather
+events, flight delays, and public sentiment about airlines in 2015.
+
+**Patterns and insights found:**
+- Certain airlines consistently had higher delay rates than others
+- Delays peaked during specific months tied to weather seasons
+- States with more storm events showed higher flight delay rates
+- Public sentiment on Twitter was predominantly negative with
+late flights and customer service being the top complaints
+which directly mirrors the delay patterns found in flights data
+
+**Why this matters:**
+Understanding when and where delays happen and what causes
+them helps airlines allocate resources better and helps
+passengers make smarter travel decisions.
+
+**Real world application:**
+Airlines can use this analysis to proactively notify passengers
+of likely delays based on weather forecasts and to identify
+which routes need operational improvements.
