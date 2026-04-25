@@ -50,16 +50,19 @@ summary(cars)
 
 ```{r, Tweets}
 
-twitter_data <- read.csv("Final-Project/data/Tweets-1.csv")
+twitter_data <- read.csv("C:/Users/Derek/Desktop/projects/cleaned_tweets_final.csv")
 
 twitter_tibble <- tibble(twitter_data)
 
 twitter_unnested <- twitter_tibble %>%
   unnest_tokens(word,text)
 
+stop_words <- c("like", "work", "right", "well", "enough", "free", "fine", "tough", "afford", "cheaper", "rapid","leverage")
+stopwords_tibble <- tibble(word = stop_words)
 
 twitter_sentiment <- twitter_unnested %>%
   inner_join(get_sentiments("bing")) %>%
+  anti_join(stopwords_tibble, by="word") %>%
   count(word, sentiment, sort = TRUE)
 
 
