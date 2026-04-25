@@ -6,7 +6,7 @@ library(lubridate)  # for ymd_hms
 
 
 # Read the CSV file
-storm_data <- read.csv("data/weather.csv")
+storm_data <- read_csv("data/weather.csv")
 
 damage_to_dollars <- function(x) {
   x <- str_trim(x)   # remove extra spaces (Chapter 5)
