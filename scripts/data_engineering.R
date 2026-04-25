@@ -70,11 +70,7 @@ cat("Airlines rows:", nrow(airlines), "\n")
 cat("Airports rows:", nrow(airports), "\n")
 
 
-flights <- read.csv("flights.csv")
 
-# Supporting lookup tables for flights
-airlines <- read.csv("airlines.csv")
-airports <- read.csv("airports.csv")
 #Full airline names by joining with airlines lookup table
 flights_clean <- flights %>%
   left_join(airlines, by = c("AIRLINE" = "IATA_CODE")) %>%
