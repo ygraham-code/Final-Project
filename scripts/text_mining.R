@@ -1,5 +1,9 @@
+library(tidytext)
+library(tidyverse)
+library(tidyr)
+library(readr)
 
-twitter_data <- read.csv("Tweets-1.csv")
+twitter_data <- read_csv("Tweets-1.csv")
 
 twitter_tibble <- tibble(twitter_data)
 
