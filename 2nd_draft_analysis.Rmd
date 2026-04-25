@@ -14,7 +14,10 @@ Libraries
 library(tidytext)
 library(tidyverse)
 library(tidyr)
-
+library(readr)
+library(dplyr)      
+library(stringr)    
+library(lubridate)  
 
 ```
 
@@ -23,14 +26,65 @@ library(tidyr)
 
 
 ```{r DtaLoading}
-summary(cars)
+
+storm_data <- read_csv("weather.csv")
+twitter_data <- read_csv("Tweets-1.csv")
+
 ```
 
 # 2. Data Cleaning
 
 
 ```{r DtaCleaning}
-summary(cars)
+
+##Weather Data Cleaning
+
+damage_to_dollars <- function(x) {
+  x <- str_trim(x)   # remove extra spaces (Chapter 5)
+  case_when(
+    x == "" | is.na(x) ~ NA_real_,
+    str_detect(x, "K") ~ as.numeric(str_sub(x, 1, -2)) * 1000,
+    str_detect(x, "M") ~ as.numeric(str_sub(x, 1, -2)) * 1000000,
+    TRUE ~ as.numeric(x)
+  )
+}
+
+# Apply conversions
+storm_data <- storm_data %>%
+  mutate(
+    # Convert damage columns to numeric
+    DAMAGE_PROPERTY = damage_to_dollars(DAMAGE_PROPERTY),
+    DAMAGE_CROPS   = damage_to_dollars(DAMAGE_CROPS),
+    
+    # Parse dates (format "DD-MMM-YY HH:MM:SS")
+    BEGIN_DATE_TIME = ymd_hms(BEGIN_DATE_TIME),
+    END_DATE_TIME   = ymd_hms(END_DATE_TIME),
+    
+    # Convert numeric columns (suppress warnings from blanks)
+    INJURIES_DIRECT   = as.numeric(INJURIES_DIRECT),
+    INJURIES_INDIRECT = as.numeric(INJURIES_INDIRECT),
+    DEATHS_DIRECT     = as.numeric(DEATHS_DIRECT),
+    DEATHS_INDIRECT   = as.numeric(DEATHS_INDIRECT),
+    BEGIN_LAT         = as.numeric(BEGIN_LAT),
+    BEGIN_LON         = as.numeric(BEGIN_LON),
+    END_LAT           = as.numeric(END_LAT),
+    END_LON           = as.numeric(END_LON),
+    MAGNITUDE         = as.numeric(MAGNITUDE)
+  ) %>%
+  # Replace empty strings with NA in all character columns
+  mutate(across(where(is.character), ~ na_if(str_trim(.), "")))
+
+# View the result
+glimpse(storm_data)
+
+
+##Flights Data Cleaning
+
+
+
+
+
+
 ```
 
 
@@ -50,37 +104,40 @@ summary(cars)
 
 ```{r, Tweets}
 
-twitter_data <- read.csv("C:/Users/Derek/Desktop/projects/cleaned_tweets_final.csv")
-
+#Create data into tibble formatting
 twitter_tibble <- tibble(twitter_data)
 
+#Create unnested tokens 
 twitter_unnested <- twitter_tibble %>%
   unnest_tokens(word,text)
 
+#Create stop words for words in the bing dictionary that do not fit our context. 
 stop_words <- c("like", "work", "right", "well", "enough", "free", "fine", "tough", "afford", "cheaper", "rapid","leverage")
 stopwords_tibble <- tibble(word = stop_words)
 
+#Create a table that lists the twitter sentiment
 twitter_sentiment <- twitter_unnested %>%
   inner_join(get_sentiments("bing")) %>%
   anti_join(stopwords_tibble, by="word") %>%
   count(word, sentiment, sort = TRUE)
 
-
+#Create a negative group to filter only negative words.
 negative <- twitter_sentiment %>%
   group_by(sentiment) %>%
   filter(sentiment == "negative")
 
+#Shows the total amount of unique negative words.
 total_negative <- negative %>%
   count(sentiment, sort = TRUE)
   
+#Create a positive group of to filter only positive words.
 positive <- twitter_sentiment %>%
   group_by(sentiment) %>%
   filter(sentiment == "positive")
 
+#Shows the total amount of unique positive words.
 total_positive <- positive %>%
   count(sentiment, sort = TRUE)
-
-write.csv(twitter_sentiment, file = "twitter_sentiment.csv")
 
 ```
 
