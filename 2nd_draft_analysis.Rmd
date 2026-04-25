@@ -50,7 +50,7 @@ summary(cars)
 
 ```{r, Tweets}
 
-twitter_data <- read.csv("C:/Users/Derek/Desktop/projects/cleaned_tweets_final.csv")
+twitter_data <- read.csv("Tweets-1.csv")
 
 twitter_tibble <- tibble(twitter_data)
 
