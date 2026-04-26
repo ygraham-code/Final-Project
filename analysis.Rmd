@@ -17,7 +17,7 @@ knitr::opts_chunk$set(echo = TRUE, warning = FALSE, message = FALSE)
 ```{r libraries}
 # Text mining and sentiment analysis (Chapter 14 and 15)
 library(tidytext)
-# Data manipulation and visualization (Chapter 12)
+# Data manipulation and visualization (Chapter 12) 
 library(tidyverse)
 # Data reshaping
 library(tidyr)
