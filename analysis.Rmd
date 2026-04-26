@@ -351,6 +351,24 @@ negative %>%
   theme_minimal()
 ```
 
+## Tweet Sentiment - Overall Breakdown
+
+```{r graph_sentiment_totals}
+# Bar chart showing overall positive vs negative sentiment balance
+sentiment_totals %>%
+  ggplot(aes(x = sentiment, y = total_words, fill = sentiment)) +
+  geom_col() +
+  scale_fill_manual(values = c("negative" = "firebrick",
+                                "positive" = "steelblue")) +
+  labs(
+    title = "Overall Tweet Sentiment (2015)",
+    x = "Sentiment",
+    y = "Total Word Count"
+  ) +
+  theme_minimal()
+```
+
+
 ## Why Are People Tweeting Negatively?
 
 ```{r graph_negative_reasons}
