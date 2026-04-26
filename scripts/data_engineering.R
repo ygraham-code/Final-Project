@@ -46,8 +46,7 @@ storm_data <- storm_data %>%
 # View the result
 glimpse(storm_data)
 
-write_csv(storm_data, "storm_events_cleaned.csv")
-
+write_csv(storm_data, "data/storm_events_cleaned.csv")
 
 # This is the Flights dataset 2015 flight delays from Kaggle
 flights <- read.csv("data/flights.csv")
